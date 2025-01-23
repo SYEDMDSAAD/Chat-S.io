@@ -57,11 +57,33 @@ export const useChatStore = create((set, get) => ({
         messages: [...get().messages, newMessage],
       });
     });
+    // Listen for seen notifications
+    socket.on("seenNotification", ({ messageId, seenBy }) => {
+      set({
+        messages: get().messages.map((message) =>
+          message._id === messageId
+            ? { ...message, seenBy: [...new Set([...message.seenBy, seenBy])] }
+            : message
+        ),
+      });
+    });
   },
 
   unsubscribeFromMessages: () => {
     const socket = useAuthStore.getState().socket;
     socket.off("newMessage");
+    socket.off("seenNotification");
+  },
+
+  // Update local message seen status
+  updateMessageSeenStatus: (messageId, userId) => {
+    set({
+      messages: get().messages.map((message) =>
+        message._id === messageId
+          ? { ...message, seenBy: [...new Set([...message.seenBy, userId])] }
+          : message
+      ),
+    });
   },
 
   setSelectedUser: (selectedUser) => set({ selectedUser }),

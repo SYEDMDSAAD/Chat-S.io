@@ -6,6 +6,8 @@ import MessageInput from "./MessageInput";
 import MessageSkeleton from "./skeletons/MessageSkeleton";
 import { useAuthStore } from "../store/useAuthStore";
 import { formatMessageTime } from "../lib/utils";
+import { io } from "socket.io-client";
+const socket = io();
 
 const ChatContainer = () => {
   const {
@@ -15,16 +17,19 @@ const ChatContainer = () => {
     selectedUser,
     subscribeToMessages,
     unsubscribeFromMessages,
+    updateMessageSeenStatus,
   } = useChatStore();
   const { authUser } = useAuthStore();
   const messageEndRef = useRef(null);
 
   useEffect(() => {
     getMessages(selectedUser._id);
-
     subscribeToMessages();
 
-    return () => unsubscribeFromMessages();
+    return () => {
+      unsubscribeFromMessages(); // Ensure to unsubscribe on component unmount
+      socket.disconnect(); // Disconnect the socket
+    };
   }, [selectedUser._id, getMessages, subscribeToMessages, unsubscribeFromMessages]);
 
   useEffect(() => {
@@ -32,6 +37,18 @@ const ChatContainer = () => {
       messageEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
   }, [messages]);
+
+  // Emit "messageSeen" event for unread messages
+  useEffect(() => {
+    if (messages.length > 0) {
+      messages.forEach((message) => {
+        if (!message.seenBy.includes(authUser._id)) {
+          socket.emit("messageSeen", { messageId: message._id, userId: authUser._id });
+          updateMessageSeenStatus(message._id, authUser._id); // Update local state
+        }
+      });
+    }
+  }, [messages, authUser._id, updateMessageSeenStatus]);
 
   if (isMessagesLoading) {
     return (
@@ -59,8 +76,8 @@ const ChatContainer = () => {
                 <img
                   src={
                     message.senderId === authUser._id
-                      ? authUser.profilePic || "/avatar.png"
-                      : selectedUser.profilePic || "/avatar.png"
+                      ? authUser.profilePic || ""
+                      : selectedUser.profilePic || "https://i.postimg.cc/PrG1rtWK/3da39-no-user-image-icon-27.webp"
                   }
                   alt="profile pic"
                 />
@@ -81,8 +98,15 @@ const ChatContainer = () => {
               )}
               {message.text && <p>{message.text}</p>}
             </div>
+            {/* Seen indicator */}
+            {message.senderId === authUser._id && (
+              <span className="text-xs opacity-50 mt-1">
+                {message.seenBy.length > 0 ? `Seen by ${message.seenBy.length}` : "Delivered"}
+              </span>
+            )}
           </div>
         ))}
+        <div ref={messageEndRef} />
       </div>
 
       <MessageInput />

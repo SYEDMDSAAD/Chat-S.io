@@ -68,3 +68,29 @@ export const sendMessage = async (req, res) => {
     res.status(500).json({ error: "Internal server error" });
   }
 };
+
+// Mark message as seen
+export const markMessageAsSeen = async (req, res) => {
+  const { id: messageId } = req.params;
+  const userId = req.user._id; // ID of the user viewing the message
+
+  try {
+    await Message.findByIdAndUpdate(
+      messageId,
+      { $addToSet: { seenBy: userId } }, // Ensure no duplicate entries
+      { new: true }
+    );
+
+    res.status(200).json({ message: "Message marked as seen." });
+
+    // Notify the sender that the message has been seen
+    const updatedMessage = await Message.findById(messageId);
+    const senderSocketId = getReceiverSocketId(updatedMessage.senderId);
+    if (senderSocketId) {
+      io.to(senderSocketId).emit("messageSeen", { messageId, seenBy: userId });
+    }
+  } catch (error) {
+    console.error("Error in markMessageAsSeen: ", error.message);
+    res.status(500).json({ error: "Error marking message as seen." });
+  }
+};
