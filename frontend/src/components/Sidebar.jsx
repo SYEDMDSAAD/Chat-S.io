@@ -5,7 +5,7 @@ import SidebarSkeleton from "./skeletons/SidebarSkeleton";
 import { Users } from "lucide-react";
 
 const Sidebar = () => {
-  const { getUsers, users, selectedUser, setSelectedUser, isUsersLoading } = useChatStore();
+  const { getUsers, users, selectedUser, setSelectedUser, isUsersLoading, getUnreadMessagesCount } = useChatStore();
 
   const { onlineUsers } = useAuthStore();
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
@@ -17,6 +17,21 @@ const Sidebar = () => {
   const filteredUsers = showOnlineOnly
     ? users.filter((user) => onlineUsers.includes(user._id))
     : users;
+
+    const handleUserClick = (user) => {
+      setSelectedUser(user);
+      if (getUnreadMessagesCount(user._id) > 0) {
+        markMessagesAsRead(user._id); // Call to mark messages as read
+      }
+    };
+  
+    const markMessagesAsRead = async (userId) => {
+      try {
+        await fetch(`/api/messages/markAsRead/${userId}`, { method: "POST" });
+      } catch (error) {
+        console.error("Failed to mark messages as read:", error);
+      }
+    };
 
   if (isUsersLoading) return <SidebarSkeleton />;
 
@@ -43,10 +58,10 @@ const Sidebar = () => {
       </div>
 
       <div className="overflow-y-auto w-full py-3">
-        {filteredUsers.map((user) => (
+      {filteredUsers.map((user) => (
           <button
             key={user._id}
-            onClick={() => setSelectedUser(user)}
+            onClick={() => handleUserClick(user)}
             className={`
               w-full p-3 flex items-center gap-3
               hover:bg-base-300 transition-colors
@@ -73,9 +88,13 @@ const Sidebar = () => {
               <div className="text-sm text-zinc-400">
                 {onlineUsers.includes(user._id) ? "Online" : "Offline"}
               </div>
+              {getUnreadMessagesCount(user._id) > 0 && (
+                <div className="text-xs text-red-500 mt-1"></div>
+              )}
             </div>
           </button>
         ))}
+        
 
         {filteredUsers.length === 0 && (
           <div className="text-center text-zinc-500 py-4">No online users</div>

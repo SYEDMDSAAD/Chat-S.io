@@ -42,7 +42,10 @@ const ChatContainer = () => {
   useEffect(() => {
     if (messages.length > 0) {
       messages.forEach((message) => {
-        if (!message.seenBy.includes(authUser._id)) {
+        if (
+          message.receiverId === authUser._id && // Check if the current user is the recipient
+          !message.seenBy.includes(authUser._id) // Check if the message has not been marked as seen by the current user
+        ) {
           socket.emit("messageSeen", { messageId: message._id, userId: authUser._id });
           updateMessageSeenStatus(message._id, authUser._id); // Update local state
         }

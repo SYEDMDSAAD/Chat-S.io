@@ -12,50 +12,78 @@ const io = new Server(server, {
   },
 });
 
-export function getReceiverSocketId(userId) {
-  return userSocketMap[userId];
-}
+// Store online users: { userId: socketId }
+const userSocketMap = {};
 
-// used to store online users
-const userSocketMap = {}; // {userId: socketId}
+// Get the socket ID for a specific user
+export function getReceiverSocketId(userId) {
+  return userSocketMap[userId] || null; // Return null if user is not online
+}
 
 io.on("connection", (socket) => {
   console.log("A user connected", socket.id);
 
   const userId = socket.handshake.query.userId;
-  if (userId) userSocketMap[userId] = socket.id;
+   // Validate and store the user's socket ID
+   if (userId) {
+    userSocketMap[userId] = socket.id;
+    console.log(`User ${userId} is online with socket ID ${socket.id}`);
 
-  // io.emit() is used to send events to all the connected clients
-  io.emit("getOnlineUsers", Object.keys(userSocketMap));
+    // Notify all clients of the updated online users
+    io.emit("getOnlineUsers", Object.keys(userSocketMap));
+  } else {
+    console.warn("Connection attempt without userId");
+  }
 
   // Handle "messageSeen" event
   socket.on("messageSeen", async ({ messageId, userId }) => {
+    if (!messageId || !userId) {
+      console.warn("Invalid data for messageSeen event");
+      return;
+    }
+
     try {
-      // Update the message's seenBy field
-      await Message.findByIdAndUpdate(
+      // Mark the message as seen in the database
+      const updatedMessage = await Message.findByIdAndUpdate(
         messageId,
-        { $addToSet: { seenBy: userId } } // Ensure no duplicates
+        { $addToSet: { seenBy: userId } }, // Add userId to 'seenBy', ensuring no duplicates
+        { new: true } // Return the updated document
       );
 
-      // Fetch the message and notify the sender
-      const message = await Message.findById(messageId).populate("senderId");
-      if (message) {
-        const senderSocketId = userSocketMap[message.senderId._id.toString()];
-        if (senderSocketId) {
-          io.to(senderSocketId).emit("seenNotification", {
-            messageId,
-            seenBy: userId,
-          });
-        }
+      if (!updatedMessage) {
+        console.warn(`Message with ID ${messageId} not found`);
+        return;
+      }
+
+      // Notify the sender in real-time about the seen event
+      const senderId = updatedMessage.senderId.toString();
+      const senderSocketId = userSocketMap[senderId];
+      if (senderSocketId) {
+        io.to(senderSocketId).emit("seenNotification", {
+          messageId,
+          seenBy: userId,
+        });
+        console.log(`Seen notification sent to user ${senderId}`);
       }
     } catch (error) {
       console.error("Error handling messageSeen event:", error);
     }
   });
 
+  // Handle user disconnection
   socket.on("disconnect", () => {
     console.log("A user disconnected", socket.id);
-    delete userSocketMap[userId];
+
+    // Remove the disconnected user from the userSocketMap
+    const disconnectedUserId = Object.keys(userSocketMap).find(
+      (key) => userSocketMap[key] === socket.id
+    );
+    if (disconnectedUserId) {
+      delete userSocketMap[disconnectedUserId];
+      console.log(`User ${disconnectedUserId} went offline`);
+    }
+
+    // Notify all clients of the updated online users
     io.emit("getOnlineUsers", Object.keys(userSocketMap));
   });
 });

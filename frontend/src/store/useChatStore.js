@@ -43,12 +43,18 @@ export const useChatStore = create((set, get) => ({
     }
   },
 
+  // Subscribe to real-time socket events
   subscribeToMessages: () => {
     const { selectedUser } = get();
-    if (!selectedUser) return;
-
     const socket = useAuthStore.getState().socket;
 
+    if (!selectedUser) return;
+
+    // Ensure no duplicate listeners are attached
+    socket.off("newMessage");
+    socket.off("seenNotification");
+
+    // Handle new messages
     socket.on("newMessage", (newMessage) => {
       const isMessageSentFromSelectedUser = newMessage.senderId === selectedUser._id;
       if (!isMessageSentFromSelectedUser) return;
@@ -57,7 +63,8 @@ export const useChatStore = create((set, get) => ({
         messages: [...get().messages, newMessage],
       });
     });
-    // Listen for seen notifications
+
+    // Handle seen notifications
     socket.on("seenNotification", ({ messageId, seenBy }) => {
       set({
         messages: get().messages.map((message) =>
@@ -85,6 +92,13 @@ export const useChatStore = create((set, get) => ({
       ),
     });
   },
+
+  getUnreadMessagesCount: (userId) => {
+      const { messages } = get();
+      return messages.filter((message) => message.senderId === userId && !message.seenBy.includes(userId)).length;
+    },
+  
+  
 
   setSelectedUser: (selectedUser) => set({ selectedUser }),
 }));

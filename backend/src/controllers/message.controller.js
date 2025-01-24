@@ -69,25 +69,32 @@ export const sendMessage = async (req, res) => {
   }
 };
 
-// Mark message as seen
+// Mark a specific message as seen by the recipient
 export const markMessageAsSeen = async (req, res) => {
-  const { id: messageId } = req.params;
+  const { id: messageId } = req.params; // Message ID to mark as seen
   const userId = req.user._id; // ID of the user viewing the message
 
   try {
-    await Message.findByIdAndUpdate(
+    // Update the 'seenBy' field of the message to include the current user
+    const updatedMessage = await Message.findByIdAndUpdate(
       messageId,
-      { $addToSet: { seenBy: userId } }, // Ensure no duplicate entries
-      { new: true }
+      { $addToSet: { seenBy: userId } }, // Add userId to 'seenBy' without duplicates
+      { new: true } // Return the updated document
     );
+
+    if (!updatedMessage) {
+      return res.status(404).json({ error: "Message not found." });
+    }
 
     res.status(200).json({ message: "Message marked as seen." });
 
-    // Notify the sender that the message has been seen
-    const updatedMessage = await Message.findById(messageId);
+    // Notify the sender in real-time about the seen update
     const senderSocketId = getReceiverSocketId(updatedMessage.senderId);
     if (senderSocketId) {
-      io.to(senderSocketId).emit("messageSeen", { messageId, seenBy: userId });
+      io.to(senderSocketId).emit("messageSeen", {
+        messageId,
+        seenBy: userId,
+      });
     }
   } catch (error) {
     console.error("Error in markMessageAsSeen: ", error.message);
