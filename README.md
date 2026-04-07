@@ -44,8 +44,3 @@ A full-stack real-time chat application built using modern web technologies, ena
 ```bash
 git clone https://github.com/SYEDMDSAAD/Chat-S.io.git
 cd Chat-S.io
-
-
-🔧 Backend Setup
-
-⭐ If you like this project, give it a star!
