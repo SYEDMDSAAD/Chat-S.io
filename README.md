@@ -72,8 +72,43 @@ https://chat-s-io.onrender.com/
 ## 📂 Project Structure
 
 ```bash
-backend/
-frontend/
+.
+├── backend
+│   ├── src
+│   │   ├── controllers
+│   │   ├── lib
+│   │   ├── middleware
+│   │   ├── models
+│   │   ├── routes
+│   │   ├── seeds
+│   │   └── index.js
+│   ├── .gitignore
+│   ├── package-lock.json
+│   └── package.json
+│
+├── frontend
+│   ├── public
+│   ├── src
+│   │   ├── components
+│   │   ├── constants
+│   │   ├── lib
+│   │   ├── pages
+│   │   ├── store
+│   │   ├── App.jsx
+│   │   ├── index.css
+│   │   └── main.jsx
+│   ├── README.md
+│   ├── eslint.config.js
+│   ├── index.html
+│   ├── package-lock.json
+│   ├── package.json
+│   ├── postcss.config.js
+│   ├── tailwind.config.js
+│   └── vite.config.js
+│
+├── .gitignore
+├── README.md
+└── package.json
 ```
 
 ---
