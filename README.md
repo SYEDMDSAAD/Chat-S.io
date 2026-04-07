@@ -44,6 +44,7 @@ A full-stack real-time chat application built using modern web technologies, ena
 ```bash
 git clone https://github.com/SYEDMDSAAD/Chat-S.io.git
 cd Chat-S.io
+```
 
 ## 🔧 Backend Setup
 
@@ -51,6 +52,7 @@ cd Chat-S.io
 cd backend
 npm install
 npm start
+```
 
 ## 🎨 Frontend Setup
 
@@ -58,6 +60,7 @@ npm start
 cd frontend
 npm install
 npm run dev
+```
 
 ---
 
@@ -71,6 +74,7 @@ https://chat-s-io.onrender.com/
 ```bash
 backend/
 frontend/
+```
 
 ---
 
