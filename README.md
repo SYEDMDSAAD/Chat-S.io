@@ -77,6 +77,12 @@ Optionally seed demo users (password `123456` for all):
 node src/seeds/user.seed.js
 ```
 
+Or create two demo accounts (Aisha Khan and Rohan Mehta) with a ready-made conversation, handy for demos. Set `DEMO_PASSWORD` in `.env` first; re-running resets the conversation:
+
+```bash
+npm run seed:demo
+```
+
 ## 🎨 Frontend Setup
 
 ```bash
