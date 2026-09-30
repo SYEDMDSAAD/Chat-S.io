@@ -1,6 +1,6 @@
 # 💬 Real-Time Chat Application
 
-A full-stack real-time chat application built using modern web technologies, enabling seamless communication with features like authentication, group chats, and message status.
+A full-stack real-time chat application built using modern web technologies, enabling seamless one-to-one communication with features like authentication, image sharing, online status, and message seen status.
 
 ---
 
@@ -8,8 +8,10 @@ A full-stack real-time chat application built using modern web technologies, ena
 
 - 🔐 User Authentication (Login / Signup)
 - 💬 Real-time messaging using WebSockets
-- 👥 Group chat functionality
+- 🖼️ Image messages and profile pictures (Cloudinary)
+- 🟢 Online / offline status and unread message counts
 - ✅ Message status (Seen / Delivered)
+- 🎨 32 selectable themes (DaisyUI)
 - ⚡ Fast and responsive UI
 - 🔄 Live updates without refresh
 
@@ -46,12 +48,33 @@ git clone https://github.com/SYEDMDSAAD/Chat-S.io.git
 cd Chat-S.io
 ```
 
+### Prerequisites
+- Node.js 18+
+- A MongoDB database (local or Atlas)
+- A Cloudinary account (for image uploads)
+
 ## 🔧 Backend Setup
 
 ```bash
 cd backend
 npm install
-npm start
+cp .env.example .env   # then fill in the values
+npm run dev            # starts on http://localhost:5001
+```
+
+| Variable | Description |
+| --- | --- |
+| `PORT` | Server port. The frontend expects `5001` in development. |
+| `MONGODB_URI` | MongoDB connection string |
+| `JWT_SECRET` | Secret used to sign login tokens |
+| `NODE_ENV` | `development` or `production` |
+| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | Cloudinary credentials |
+| `CLIENT_URL` | Frontend origin allowed by CORS in development (default `http://localhost:5173`) |
+
+Optionally seed demo users (password `123456` for all):
+
+```bash
+node src/seeds/user.seed.js
 ```
 
 ## 🎨 Frontend Setup
@@ -59,7 +82,16 @@ npm start
 ```bash
 cd frontend
 npm install
-npm run dev
+npm run dev            # http://localhost:5173
+```
+
+## 🚢 Production
+
+From the project root, build the frontend and start the backend, which serves it:
+
+```bash
+npm run build
+NODE_ENV=production npm start
 ```
 
 ---
@@ -82,6 +114,7 @@ https://chat-s-io.onrender.com/
 │   │   ├── routes
 │   │   ├── seeds
 │   │   └── index.js
+│   ├── .env.example
 │   ├── .gitignore
 │   ├── package-lock.json
 │   └── package.json
