@@ -1,14 +1,20 @@
 import { create } from "zustand";
 import toast from "react-hot-toast";
 import { axiosInstance } from "../lib/axios";
+import { getErrorMessage } from "../lib/utils";
 import { useAuthStore } from "./useAuthStore";
+
+const MESSAGES_PAGE_SIZE = 50;
 
 export const useChatStore = create((set, get) => ({
   messages: [],
   users: [],
+  unreadCounts: {}, // { userId: number of unseen messages from that user }
   selectedUser: null,
   isUsersLoading: false,
   isMessagesLoading: false,
+  hasMoreMessages: false,
+  isLoadingOlderMessages: false,
 
   getUsers: async () => {
     set({ isUsersLoading: true });
@@ -16,39 +22,69 @@ export const useChatStore = create((set, get) => ({
       const res = await axiosInstance.get("/messages/users");
       set({ users: res.data });
     } catch (error) {
-      toast.error(error.response.data.message);
+      toast.error(getErrorMessage(error));
     } finally {
       set({ isUsersLoading: false });
+    }
+  },
+
+  getUnreadCounts: async () => {
+    try {
+      const res = await axiosInstance.get("/messages/unread");
+      const { selectedUser } = get();
+      // The open chat marks its messages as seen, so it has no unread count
+      if (selectedUser) delete res.data[selectedUser._id];
+      set({ unreadCounts: res.data });
+    } catch (error) {
+      console.error("Failed to load unread counts:", error);
     }
   },
 
   getMessages: async (userId) => {
     set({ isMessagesLoading: true });
     try {
-      const res = await axiosInstance.get(`/messages/${userId}`);
-      set({ messages: res.data });
+      const res = await axiosInstance.get(`/messages/${userId}`, { params: { limit: MESSAGES_PAGE_SIZE } });
+      set({ messages: res.data, hasMoreMessages: res.data.length === MESSAGES_PAGE_SIZE });
     } catch (error) {
-      toast.error(error.response.data.message);
+      toast.error(getErrorMessage(error));
     } finally {
       set({ isMessagesLoading: false });
     }
   },
+  loadOlderMessages: async () => {
+    const { selectedUser, messages, isLoadingOlderMessages } = get();
+    if (!selectedUser || isLoadingOlderMessages || messages.length === 0) return;
+
+    set({ isLoadingOlderMessages: true });
+    try {
+      const res = await axiosInstance.get(`/messages/${selectedUser._id}`, {
+        params: { limit: MESSAGES_PAGE_SIZE, before: messages[0].createdAt },
+      });
+      set({
+        messages: [...res.data, ...get().messages],
+        hasMoreMessages: res.data.length === MESSAGES_PAGE_SIZE,
+      });
+    } catch (error) {
+      toast.error(getErrorMessage(error));
+    } finally {
+      set({ isLoadingOlderMessages: false });
+    }
+  },
+
   sendMessage: async (messageData) => {
     const { selectedUser, messages } = get();
     try {
       const res = await axiosInstance.post(`/messages/send/${selectedUser._id}`, messageData);
       set({ messages: [...messages, res.data] });
     } catch (error) {
-      toast.error(error.response.data.message);
+      toast.error(getErrorMessage(error));
     }
   },
 
   // Subscribe to real-time socket events
   subscribeToMessages: () => {
-    const { selectedUser } = get();
     const socket = useAuthStore.getState().socket;
-
-    if (!selectedUser) return;
+    if (!socket) return;
 
     // Ensure no duplicate listeners are attached
     socket.off("newMessage");
@@ -56,11 +92,20 @@ export const useChatStore = create((set, get) => ({
 
     // Handle new messages
     socket.on("newMessage", (newMessage) => {
-      const isMessageSentFromSelectedUser = newMessage.senderId === selectedUser._id;
-      if (!isMessageSentFromSelectedUser) return;
+      const { selectedUser } = get();
 
+      if (newMessage.senderId === selectedUser?._id) {
+        set({ messages: [...get().messages, newMessage] });
+        return;
+      }
+
+      // Message from a chat that isn't open: count it as unread
+      const { unreadCounts } = get();
       set({
-        messages: [...get().messages, newMessage],
+        unreadCounts: {
+          ...unreadCounts,
+          [newMessage.senderId]: (unreadCounts[newMessage.senderId] || 0) + 1,
+        },
       });
     });
 
@@ -78,6 +123,7 @@ export const useChatStore = create((set, get) => ({
 
   unsubscribeFromMessages: () => {
     const socket = useAuthStore.getState().socket;
+    if (!socket) return;
     socket.off("newMessage");
     socket.off("seenNotification");
   },
@@ -93,12 +139,15 @@ export const useChatStore = create((set, get) => ({
     });
   },
 
-  getUnreadMessagesCount: (userId) => {
-      const { messages } = get();
-      return messages.filter((message) => message.senderId === userId && !message.seenBy.includes(userId)).length;
-    },
-  
-  
+  // Clear everything from the previous session (called on logout)
+  reset: () => set({ messages: [], users: [], unreadCounts: {}, selectedUser: null, hasMoreMessages: false }),
 
-  setSelectedUser: (selectedUser) => set({ selectedUser }),
+  setSelectedUser: (selectedUser) => {
+    if (!selectedUser) return set({ selectedUser });
+
+    // Opening a chat marks its messages as seen, so clear its unread count
+    const unreadCounts = { ...get().unreadCounts };
+    delete unreadCounts[selectedUser._id];
+    set({ selectedUser, unreadCounts });
+  },
 }));

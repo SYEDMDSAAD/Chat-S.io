@@ -6,8 +6,6 @@ import MessageInput from "./MessageInput";
 import MessageSkeleton from "./skeletons/MessageSkeleton";
 import { useAuthStore } from "../store/useAuthStore";
 import { formatMessageTime } from "../lib/utils";
-import { io } from "socket.io-client";
-const socket = io();
 
 const ChatContainer = () => {
   const {
@@ -15,43 +13,42 @@ const ChatContainer = () => {
     getMessages,
     isMessagesLoading,
     selectedUser,
-    subscribeToMessages,
-    unsubscribeFromMessages,
     updateMessageSeenStatus,
+    hasMoreMessages,
+    isLoadingOlderMessages,
+    loadOlderMessages,
   } = useChatStore();
-  const { authUser } = useAuthStore();
+  const { authUser, socket } = useAuthStore();
   const messageEndRef = useRef(null);
+  const lastMessageIdRef = useRef(null);
 
   useEffect(() => {
     getMessages(selectedUser._id);
-    subscribeToMessages();
+  }, [selectedUser._id, getMessages]);
 
-    return () => {
-      unsubscribeFromMessages(); // Ensure to unsubscribe on component unmount
-      socket.disconnect(); // Disconnect the socket
-    };
-  }, [selectedUser._id, getMessages, subscribeToMessages, unsubscribeFromMessages]);
-
+  // Scroll to the bottom only when a newer message arrives, not when older ones are prepended
   useEffect(() => {
-    if (messageEndRef.current && messages) {
+    const lastMessageId = messages[messages.length - 1]?._id;
+    if (messageEndRef.current && lastMessageId !== lastMessageIdRef.current) {
       messageEndRef.current.scrollIntoView({ behavior: "smooth" });
     }
+    lastMessageIdRef.current = lastMessageId;
   }, [messages]);
 
   // Emit "messageSeen" event for unread messages
   useEffect(() => {
-    if (messages.length > 0) {
+    if (socket && messages.length > 0) {
       messages.forEach((message) => {
         if (
           message.receiverId === authUser._id && // Check if the current user is the recipient
           !message.seenBy.includes(authUser._id) // Check if the message has not been marked as seen by the current user
         ) {
-          socket.emit("messageSeen", { messageId: message._id, userId: authUser._id });
+          socket.emit("messageSeen", { messageId: message._id });
           updateMessageSeenStatus(message._id, authUser._id); // Update local state
         }
       });
     }
-  }, [messages, authUser._id, updateMessageSeenStatus]);
+  }, [messages, authUser._id, socket, updateMessageSeenStatus]);
 
   if (isMessagesLoading) {
     return (
@@ -68,19 +65,25 @@ const ChatContainer = () => {
       <ChatHeader />
 
       <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {hasMoreMessages && (
+          <div className="text-center">
+            <button className="btn btn-xs btn-ghost" onClick={loadOlderMessages} disabled={isLoadingOlderMessages}>
+              {isLoadingOlderMessages ? "Loading..." : "Load older messages"}
+            </button>
+          </div>
+        )}
         {messages.map((message) => (
           <div
             key={message._id}
             className={`chat ${message.senderId === authUser._id ? "chat-end" : "chat-start"}`}
-            ref={messageEndRef}
           >
             <div className=" chat-image avatar">
               <div className="size-10 rounded-full border">
                 <img
                   src={
                     message.senderId === authUser._id
-                      ? authUser.profilePic || "https://i.postimg.cc/PrG1rtWK/3da39-no-user-image-icon-27.webp"
-                      : selectedUser.profilePic || "https://i.postimg.cc/PrG1rtWK/3da39-no-user-image-icon-27.webp"
+                      ? authUser.profilePic || "/avatar.webp"
+                      : selectedUser.profilePic || "/avatar.webp"
                   }
                   alt="profile pic"
                 />

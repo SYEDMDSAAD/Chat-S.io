@@ -11,8 +11,16 @@ const MessageInput = () => {
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
+    if (!file) return;
+
     if (!file.type.startsWith("image/")) {
       toast.error("Please select an image file");
+      return;
+    }
+
+    // base64 grows the upload by ~33%, and the server accepts up to 10mb
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be smaller than 5MB");
       return;
     }
 

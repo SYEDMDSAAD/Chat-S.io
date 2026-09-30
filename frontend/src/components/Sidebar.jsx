@@ -5,33 +5,22 @@ import SidebarSkeleton from "./skeletons/SidebarSkeleton";
 import { Users } from "lucide-react";
 
 const Sidebar = () => {
-  const { getUsers, users, selectedUser, setSelectedUser, isUsersLoading, getUnreadMessagesCount } = useChatStore();
+  const { getUsers, getUnreadCounts, users, unreadCounts, selectedUser, setSelectedUser, isUsersLoading } =
+    useChatStore();
 
-  const { onlineUsers } = useAuthStore();
+  const { onlineUsers, authUser } = useAuthStore();
   const [showOnlineOnly, setShowOnlineOnly] = useState(false);
 
   useEffect(() => {
     getUsers();
-  }, [getUsers]);
+    getUnreadCounts();
+  }, [getUsers, getUnreadCounts]);
 
   const filteredUsers = showOnlineOnly
     ? users.filter((user) => onlineUsers.includes(user._id))
     : users;
 
-    const handleUserClick = (user) => {
-      setSelectedUser(user);
-      if (getUnreadMessagesCount(user._id) > 0) {
-        markMessagesAsRead(user._id); // Call to mark messages as read
-      }
-    };
-  
-    const markMessagesAsRead = async (userId) => {
-      try {
-        await fetch(`/api/messages/markAsRead/${userId}`, { method: "POST" });
-      } catch (error) {
-        console.error("Failed to mark messages as read:", error);
-      }
-    };
+  const onlineContactsCount = onlineUsers.filter((id) => id !== authUser._id).length;
 
   if (isUsersLoading) return <SidebarSkeleton />;
 
@@ -53,7 +42,7 @@ const Sidebar = () => {
             />
             <span className="text-sm">Online</span>
           </label>
-          <span className="text-xs text-zinc-500">({onlineUsers.length - 1} live)</span>
+          <span className="text-xs text-zinc-500">({onlineContactsCount} live)</span>
         </div>
       </div>
 
@@ -61,7 +50,7 @@ const Sidebar = () => {
       {filteredUsers.map((user) => (
           <button
             key={user._id}
-            onClick={() => handleUserClick(user)}
+            onClick={() => setSelectedUser(user)}
             className={`
               w-full p-3 flex items-center gap-3
               hover:bg-base-300 transition-colors
@@ -70,10 +59,15 @@ const Sidebar = () => {
           >
             <div className="relative mx-auto lg:mx-0">
               <img
-                src={user.profilePic || "https://i.postimg.cc/PrG1rtWK/3da39-no-user-image-icon-27.webp"}
-                alt={user.name}
+                src={user.profilePic || "/avatar.webp"}
+                alt={user.fullName}
                 className="size-12 object-cover rounded-full"
               />
+              {unreadCounts[user._id] > 0 && (
+                <span className="absolute -top-1 -right-1 badge badge-primary badge-sm">
+                  {unreadCounts[user._id]}
+                </span>
+              )}
               {onlineUsers.includes(user._id) && (
                 <span
                   className="absolute bottom-0 right-0 size-3 bg-green-500 
@@ -88,16 +82,15 @@ const Sidebar = () => {
               <div className="text-sm text-zinc-400">
                 {onlineUsers.includes(user._id) ? "Online" : "Offline"}
               </div>
-              {getUnreadMessagesCount(user._id) > 0 && (
-                <div className="text-xs text-red-500 mt-1"></div>
-              )}
             </div>
           </button>
         ))}
         
 
         {filteredUsers.length === 0 && (
-          <div className="text-center text-zinc-500 py-4">No online users</div>
+          <div className="text-center text-zinc-500 py-4">
+            {showOnlineOnly ? "No online users" : "No contacts yet"}
+          </div>
         )}
       </div>
     </aside>

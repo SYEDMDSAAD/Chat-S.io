@@ -65,7 +65,7 @@ const SignUpPage = () => {
                 <input
                   type="text"
                   className={`input input-bordered w-full pl-10`}
-                  placeholder="SYED MOHAMMAD SAAD"
+                  placeholder="John Doe"
                   value={formData.fullName}
                   onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                 />
@@ -137,7 +137,9 @@ const SignUpPage = () => {
               <Link to="/login" className="link link-primary">
                 Sign in
               </Link>
-              <p className="pl-2">Upload Profile Picture after signing up in your profile settings.</p>
+            </p>
+            <p className="text-base-content/60 pt-2">
+              Upload Profile Picture after signing up in your profile settings.
             </p>
           </div>
         </div>

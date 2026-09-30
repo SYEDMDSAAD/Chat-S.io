@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useAuthStore } from "../store/useAuthStore";
 import { Camera, Mail, User } from "lucide-react";
+import toast from "react-hot-toast";
 
 const ProfilePage = () => {
   const { authUser, isUpdatingProfile, updateProfile } = useAuthStore();
@@ -10,6 +11,17 @@ const ProfilePage = () => {
     const file = e.target.files[0];
     if (!file) return;
 
+    if (!file.type.startsWith("image/")) {
+      toast.error("Please select an image file");
+      return;
+    }
+
+    // base64 grows the upload by ~33%, and the server accepts up to 10mb
+    if (file.size > 5 * 1024 * 1024) {
+      toast.error("Image must be smaller than 5MB");
+      return;
+    }
+
     const reader = new FileReader();
 
     reader.readAsDataURL(file);
@@ -18,6 +30,8 @@ const ProfilePage = () => {
       const base64Image = reader.result;
       setSelectedImg(base64Image);
       await updateProfile({ profilePic: base64Image });
+      // On success authUser.profilePic is the new image; on failure fall back to the old one
+      setSelectedImg(null);
     };
   };
 
@@ -35,7 +49,7 @@ const ProfilePage = () => {
           <div className="flex flex-col items-center gap-4">
             <div className="relative">
               <img
-                src={selectedImg || authUser.profilePic || "https://i.postimg.cc/PrG1rtWK/3da39-no-user-image-icon-27.webp"}
+                src={selectedImg || authUser.profilePic || "/avatar.webp"}
                 alt="Profile"
                 className="size-32 rounded-full object-cover border-4 "
               />

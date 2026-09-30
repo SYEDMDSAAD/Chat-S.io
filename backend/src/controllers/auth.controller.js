@@ -1,10 +1,11 @@
-import { generateToken } from "../lib/utils.js";
+import { clearTokenCookie, generateToken, isImageDataUrl } from "../lib/utils.js";
 import User from "../models/user.model.js";
 import bcrypt from "bcryptjs";
 import cloudinary from "../lib/cloudinary.js";
 
 export const signup = async (req, res) => {
-  const { fullName, email, password } = req.body;
+  const { fullName, password } = req.body;
+  const email = req.body.email?.trim().toLowerCase();
   try {
     if (!fullName || !email || !password) {
       return res.status(400).json({ message: "All fields are required" });
@@ -28,9 +29,9 @@ export const signup = async (req, res) => {
     });
 
     if (newUser) {
-      // generate jwt token here
-      generateToken(newUser._id, res);
+      // save first so a token is never issued for a user that doesn't exist
       await newUser.save();
+      generateToken(newUser._id, res);
 
       res.status(201).json({
         _id: newUser._id,
@@ -48,8 +49,13 @@ export const signup = async (req, res) => {
 };
 
 export const login = async (req, res) => {
-  const { email, password } = req.body;
+  const { password } = req.body;
+  const email = req.body.email?.trim().toLowerCase();
   try {
+    if (!email || !password) {
+      return res.status(400).json({ message: "All fields are required" });
+    }
+
     const user = await User.findOne({ email });
 
     if (!user) {
@@ -77,7 +83,7 @@ export const login = async (req, res) => {
 
 export const logout = (req, res) => {
   try {
-    res.cookie("jwt", "", { maxAge: 0 });
+    clearTokenCookie(res);
     res.status(200).json({ message: "Logged out successfully" });
   } catch (error) {
     console.log("Error in logout controller", error.message);
@@ -94,12 +100,16 @@ export const updateProfile = async (req, res) => {
       return res.status(400).json({ message: "Profile pic is required" });
     }
 
+    if (!isImageDataUrl(profilePic)) {
+      return res.status(400).json({ message: "Profile pic must be an image" });
+    }
+
     const uploadResponse = await cloudinary.uploader.upload(profilePic);
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       { profilePic: uploadResponse.secure_url },
       { new: true }
-    );
+    ).select("-password");
 
     res.status(200).json(updatedUser);
   } catch (error) {
