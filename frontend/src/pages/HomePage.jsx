@@ -17,10 +17,10 @@ const HomePage = () => {
   }, [socket, subscribeToMessages, unsubscribeFromMessages]);
 
   return (
-    <div className="h-screen bg-base-200">
-      <div className="flex items-center justify-center pt-20 px-4">
-        <div className="bg-base-100 rounded-lg shadow-xl w-full max-w-6xl h-[calc(100vh-8rem)]">
-          <div className="flex h-full rounded-lg overflow-hidden">
+    <div className="h-dvh bg-base-200 pt-16 md:pt-20 md:pb-6 md:px-4">
+      <div className="flex justify-center h-full">
+        <div className="bg-base-100 md:rounded-xl md:shadow-xl w-full max-w-6xl h-full">
+          <div className="flex h-full md:rounded-xl overflow-hidden">
             <Sidebar />
 
             {!selectedUser ? <NoChatSelected /> : <ChatContainer />}

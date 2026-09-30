@@ -9,9 +9,31 @@ import { getReceiverSocketId, io } from "../lib/socket.js";
 export const getUsersForSidebar = async (req, res) => {
   try {
     const loggedInUserId = req.user._id;
-    const filteredUsers = await User.find({ _id: { $ne: loggedInUserId } }).select("fullName profilePic");
+    const filteredUsers = await User.find({ _id: { $ne: loggedInUserId } }).select("fullName profilePic").lean();
 
-    res.status(200).json(filteredUsers);
+    // Latest message exchanged with each contact, for the preview line and ordering
+    const lastMessages = await Message.aggregate([
+      { $match: { $or: [{ senderId: loggedInUserId }, { receiverId: loggedInUserId }] } },
+      { $sort: { createdAt: -1 } },
+      {
+        $group: {
+          _id: { $cond: [{ $eq: ["$senderId", loggedInUserId] }, "$receiverId", "$senderId"] },
+          lastMessage: { $first: { text: "$text", image: "$image", senderId: "$senderId", createdAt: "$createdAt" } },
+        },
+      },
+    ]);
+    const lastMessageByUser = new Map(lastMessages.map(({ _id, lastMessage }) => [_id.toString(), lastMessage]));
+
+    // Most recent conversations first, then contacts you haven't messaged, alphabetically
+    const usersWithLastMessage = filteredUsers
+      .map((user) => ({ ...user, lastMessage: lastMessageByUser.get(user._id.toString()) || null }))
+      .sort((a, b) => {
+        if (a.lastMessage && b.lastMessage) return new Date(b.lastMessage.createdAt) - new Date(a.lastMessage.createdAt);
+        if (a.lastMessage || b.lastMessage) return a.lastMessage ? -1 : 1;
+        return a.fullName.localeCompare(b.fullName);
+      });
+
+    res.status(200).json(usersWithLastMessage);
   } catch (error) {
     console.error("Error in getUsersForSidebar: ", error.message);
     res.status(500).json({ message: "Internal server error" });
