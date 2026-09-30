@@ -22,6 +22,11 @@ const App = () => {
     checkAuth();
   }, [checkAuth]);
 
+  // Apply the theme to the whole page so the background matches outside the app container too
+  useEffect(() => {
+    document.documentElement.setAttribute("data-theme", theme);
+  }, [theme]);
+
   if (isCheckingAuth && !authUser)
     return (
       <div className="flex items-center justify-center h-screen">

@@ -1,13 +1,20 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useChatStore } from "../store/useChatStore";
-import { Image, Send, X } from "lucide-react";
+import { Image, Loader2, Send, X } from "lucide-react";
 import toast from "react-hot-toast";
 
 const MessageInput = () => {
   const [text, setText] = useState("");
   const [imagePreview, setImagePreview] = useState(null);
+  const [isSending, setIsSending] = useState(false);
   const fileInputRef = useRef(null);
-  const { sendMessage } = useChatStore();
+  const textInputRef = useRef(null);
+  const { sendMessage, selectedUser } = useChatStore();
+
+  // Focus the message box whenever a chat is opened
+  useEffect(() => {
+    textInputRef.current?.focus();
+  }, [selectedUser?._id]);
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
@@ -38,35 +45,37 @@ const MessageInput = () => {
 
   const handleSendMessage = async (e) => {
     e.preventDefault();
-    if (!text.trim() && !imagePreview) return;
+    if ((!text.trim() && !imagePreview) || isSending) return;
 
-    try {
-      await sendMessage({
-        text: text.trim(),
-        image: imagePreview,
-      });
+    setIsSending(true);
+    const sent = await sendMessage({
+      text: text.trim(),
+      image: imagePreview,
+    });
+    setIsSending(false);
 
-      // Clear form
+    // Keep the draft if sending failed so nothing is lost
+    if (sent) {
       setText("");
       setImagePreview(null);
       if (fileInputRef.current) fileInputRef.current.value = "";
-    } catch (error) {
-      console.error("Failed to send message:", error);
     }
+    textInputRef.current?.focus();
   };
 
   return (
-    <div className="p-4 w-full">
+    <div className="p-3 sm:p-4 w-full border-t border-base-300">
       {imagePreview && (
         <div className="mb-3 flex items-center gap-2">
           <div className="relative">
             <img
               src={imagePreview}
               alt="Preview"
-              className="w-20 h-20 object-cover rounded-lg border border-zinc-700"
+              className="w-20 h-20 object-cover rounded-lg border border-base-300"
             />
             <button
               onClick={removeImage}
+              aria-label="Remove image"
               className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-base-300
               flex items-center justify-center"
               type="button"
@@ -80,8 +89,9 @@ const MessageInput = () => {
       <form onSubmit={handleSendMessage} className="flex items-center gap-2">
         <div className="flex-1 flex gap-2">
           <input
+            ref={textInputRef}
             type="text"
-            className="w-full input input-bordered rounded-lg input-sm sm:input-md"
+            className="w-full input input-bordered rounded-full input-sm sm:input-md"
             placeholder="Type a message..."
             value={text}
             onChange={(e) => setText(e.target.value)}
@@ -96,18 +106,20 @@ const MessageInput = () => {
 
           <button
             type="button"
-            className={`btn btn-circle ${imagePreview ? "text-emerald-500" : "text-zinc-400"}`}
+            className={`btn btn-ghost btn-circle btn-sm sm:btn-md ${imagePreview ? "text-success" : "text-base-content/60"}`}
             onClick={() => fileInputRef.current?.click()}
+            aria-label="Attach image"
           >
             <Image size={20} />
           </button>
         </div>
         <button
           type="submit"
-          className="btn btn-sm btn-circle"
-          disabled={!text.trim() && !imagePreview}
+          className="btn btn-primary btn-circle btn-sm sm:btn-md"
+          disabled={(!text.trim() && !imagePreview) || isSending}
+          aria-label="Send message"
         >
-          <Send size={22} />
+          {isSending ? <Loader2 className="size-5 animate-spin" /> : <Send className="size-5" />}
         </button>
       </form>
     </div>

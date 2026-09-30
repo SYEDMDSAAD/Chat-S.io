@@ -76,8 +76,11 @@ export const useChatStore = create((set, get) => ({
     try {
       const res = await axiosInstance.post(`/messages/send/${selectedUser._id}`, messageData);
       set({ messages: [...messages, res.data] });
+      get().updateLastMessage(selectedUser._id, res.data);
+      return true;
     } catch (error) {
       toast.error(getErrorMessage(error));
+      return false;
     }
   },
 
@@ -93,6 +96,7 @@ export const useChatStore = create((set, get) => ({
     // Handle new messages
     socket.on("newMessage", (newMessage) => {
       const { selectedUser } = get();
+      get().updateLastMessage(newMessage.senderId, newMessage);
 
       if (newMessage.senderId === selectedUser?._id) {
         set({ messages: [...get().messages, newMessage] });
@@ -126,6 +130,21 @@ export const useChatStore = create((set, get) => ({
     if (!socket) return;
     socket.off("newMessage");
     socket.off("seenNotification");
+  },
+
+  // Show a message as the contact's latest and move that conversation to the top of the list
+  updateLastMessage: (contactId, message) => {
+    const { users } = get();
+    const contact = users.find((user) => user._id === contactId);
+    if (!contact) return;
+
+    const { text, image, senderId, createdAt } = message;
+    set({
+      users: [
+        { ...contact, lastMessage: { text, image, senderId, createdAt } },
+        ...users.filter((user) => user._id !== contactId),
+      ],
+    });
   },
 
   // Update local message seen status
